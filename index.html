@@ -12,78 +12,85 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
     <script>
+        // Set up the scene, camera, and renderer for Three.js
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer();
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
+        // Add camera controls for interaction
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         camera.position.z = 50;
 
+        // Arrays to hold our 3D objects and their data
         const spheres = [];
-        const lines = []; // Array to hold line objects
-        let nodes = [];
+        const lines = [];
+        
+        // Define the nodes directly within the script as a JSON array
+        const nodes = [
+            {
+                "id": 1,
+                "label": "Interests",
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "id": 2,
+                "label": "Music",
+                "parent": 1,
+                "x": 20,
+                "y": 10,
+                "z": 5
+            },
+            {
+                "id": 3,
+                "label": "Coding",
+                "parent": 1,
+                "x": -15,
+                "y": -8,
+                "z": -10
+            }
+        ];
 
         // Define a material for the lines
         const lineMaterial = new THREE.LineBasicMaterial({ color: 0xcccccc });
 
-        // Fetch nodes from server
-        fetch("/nodes")
-            .then(res => res.json())
-            .then(data => {
-                nodes = data;
-                nodes.forEach(node => {
-                    const geometry = new THREE.SphereGeometry(1.5, 16, 16);
-                    const material = new THREE.MeshBasicMaterial({ color: 0x00ffcc });
-                    const sphere = new THREE.Mesh(geometry, material);
-                    sphere.position.set(node.x, node.y, node.z);
-                    scene.add(sphere);
-                    spheres.push({ mesh: sphere, data: node });
-                });
+        // Loop through the nodes and create a sphere for each one
+        nodes.forEach(node => {
+            const geometry = new THREE.SphereGeometry(1.5, 16, 16);
+            const material = new THREE.MeshBasicMaterial({ color: 0x00ffcc });
+            const sphere = new THREE.Mesh(geometry, material);
+            sphere.position.set(node.x, node.y, node.z);
+            scene.add(sphere);
+            spheres.push({ mesh: sphere, data: node });
+        });
 
-                // Now that all spheres are created, draw lines
-                nodes.forEach(node => {
-                    if (node.parent) {
-                        const childSphere = spheres.find(s => s.data.id === node.id);
-                        const parentSphere = spheres.find(s => s.data.id === node.parent);
+        // Now, loop through again to draw lines between parent and child nodes
+        nodes.forEach(node => {
+            if (node.parent) {
+                const childSphere = spheres.find(s => s.data.id === node.id);
+                const parentSphere = spheres.find(s => s.data.id === node.parent);
 
-                        if (childSphere && parentSphere) {
-                            const points = [];
-                            points.push(childSphere.mesh.position);
-                            points.push(parentSphere.mesh.position);
+                if (childSphere && parentSphere) {
+                    const points = [];
+                    points.push(childSphere.mesh.position);
+                    points.push(parentSphere.mesh.position);
 
-                            const geometry = new THREE.BufferGeometry().setFromPoints(points);
-                            const line = new THREE.Line(geometry, lineMaterial);
-                            scene.add(line);
-                            lines.push({ child: childSphere, parent: parentSphere, line: line });
-                        }
-                    }
-                });
-            });
-
-        // Save new positions after dragging (simplified example)
-        window.addEventListener("keydown", (e) => {
-            if (e.key === "s") { // press "s" to save
-                const updated = spheres.map(s => ({
-                    ...s.data,
-                    x: s.mesh.position.x,
-                    y: s.mesh.position.y,
-                    z: s.mesh.position.z
-                }));
-                fetch("/nodes", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(updated)
-                });
-                console.log("Saved new positions!");
+                    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                    const line = new THREE.Line(geometry, lineMaterial);
+                    scene.add(line);
+                    lines.push({ child: childSphere, parent: parentSphere, line: line });
+                }
             }
         });
 
+        // The animation loop
         function animate() {
             requestAnimationFrame(animate);
 
-            // Update line positions
+            // Update line positions to follow the spheres
             lines.forEach(line => {
                 const positions = line.line.geometry.attributes.position.array;
                 const p1 = line.child.mesh.position;
@@ -100,11 +107,16 @@
                 line.line.geometry.attributes.position.needsUpdate = true;
             });
 
-            controls.update();
-            renderer.render(scene, camera);
+            controls.update(); // Update camera controls
+            renderer.render(scene, camera); // Render the scene
         }
-        animate();
 
+        // Start the animation loop when the window loads
+        window.onload = function() {
+            animate();
+        };
+
+        // Handle window resize to make the scene responsive
         window.addEventListener("resize", () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
