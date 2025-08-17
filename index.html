@@ -73,6 +73,16 @@
           .nodeThreeObjectExtend(true)
           .linkWidth(1);
 
+        // --- NEW CODE ADDED HERE ---
+        // Toggle fixed position on node click
+        Graph.onNodeClick(node => {
+          // Set or unset the fixed position
+          node.fx = node.fx === null ? node.x : null;
+          node.fy = node.fy === null ? node.y : null;
+          node.fz = node.fz === null ? node.z : null;
+        });
+        // --- END OF NEW CODE ---
+
         // Adjust the force strength to spread nodes out a little more
         Graph.d3Force('charge').strength(-250);
       })
