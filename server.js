@@ -6,14 +6,12 @@ const bodyParser = require("body-parser");
 const app = express();
 const PORT = 3000;
 
-// Middleware
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname)));
 
-// File where positions are stored
 const DATA_FILE = path.join(__dirname, "nodePositions.json");
 
-// Get nodes
+// Read nodes
 app.get("/nodes", (req, res) => {
   fs.readFile(DATA_FILE, "utf8", (err, data) => {
     if (err) return res.status(500).json({ error: "Failed to read file" });
@@ -31,5 +29,5 @@ app.post("/save", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+  console.log(`✅ Server running at http://localhost:${PORT}`);
 });
