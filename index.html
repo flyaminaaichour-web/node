@@ -1,31 +1,72 @@
+<!DOCTYPE html>
+<html>
 <head>
-  <style> body { margin: 0; } </style>
+  <title>Interactive 3D Graph</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden; /* Prevent scroll bars */
+    }
+    #3d-graph {
+      width: 100vw;
+      height: 100vh;
+      background-color: #000;
+    }
+  </style>
 
+  <!-- Main library for the 3D force graph -->
   <script src="//cdn.jsdelivr.net/npm/3d-force-graph"></script>
-  <!--<script src="../../dist/3d-force-graph.js"></script>-->
 </head>
 
 <body>
   <div id="3d-graph"></div>
 
   <script type="module">
+    // Import a library for creating 3D text labels
     import SpriteText from "https://esm.sh/three-spritetext";
 
-    const Graph = new ForceGraph3D(document.getElementById('3d-graph'))
-        .jsonUrl('../datasets/miserables.json')
-        .nodeAutoColorBy('group')
-        .nodeThreeObject(node => {
-          const sprite = new SpriteText(node.id);
-          sprite.material.depthWrite = false; // make sprite background transparent
-          sprite.color = node.color;
-          sprite.textHeight = 8;
-          sprite.center.y = -0.6; // shift above node
-          return sprite;
-        })
-        .nodeThreeObjectExtend(true);
+    // Define the graph data structure with nodes and links
+    // This replaces the need for an external JSON file
+    const myGraphData = {
+      nodes: [
+        { id: "A", name: "Node A", group: 1 },
+        { id: "B", name: "Node B", group: 1 },
+        { id: "C", name: "Node C", group: 2 },
+        { id: "D", name: "Node D", group: 2 },
+        { id: "E", name: "Node E", group: 3 },
+        { id: "F", name: "Node F", group: 3 }
+      ],
+      links: [
+        { source: "A", target: "B" },
+        { source: "A", target: "C" },
+        { source: "B", target: "D" },
+        { source: "C", target: "E" },
+        { source: "D", target: "F" },
+        { source: "E", target: "F" }
+      ]
+    };
 
-    // Spread nodes a little wider
-    Graph.d3Force('charge').strength(-120);
+    // Initialize the 3D Force Graph
+    const Graph = new ForceGraph3D(document.getElementById('3d-graph'))
+      // Pass the hard-coded data to the graph
+      .graphData(myGraphData)
+      // Automatically color nodes based on their 'group' property
+      .nodeAutoColorBy('group')
+      // Custom function to create a text sprite for each node's label
+      .nodeThreeObject(node => {
+        const sprite = new SpriteText(node.name);
+        sprite.material.depthWrite = false; // Make sprite always visible
+        sprite.color = node.color;
+        sprite.textHeight = 8;
+        return sprite;
+      })
+      // Disable automatic positioning adjustments for the custom object
+      .nodeThreeObjectExtend(true)
+      .linkWidth(1); // Set the width of the links
+
+    // Adjust the force strength to spread nodes out a little more
+    Graph.d3Force('charge').strength(-250);
 
   </script>
 </body>
+</html>
