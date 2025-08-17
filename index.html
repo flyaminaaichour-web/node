@@ -25,7 +25,7 @@
     // Import a library for creating 3D text labels
     import SpriteText from "https://esm.sh/three-spritetext";
 
-    // Fetch the graph data from your nodePositions.json file
+    // Fetch the graph data from the nodePositions.json file
     fetch('nodePositions.json')
       .then(response => {
         if (!response.ok) {
@@ -33,23 +33,45 @@
         }
         return response.json();
       })
-      .then(data => {
+      .then(rawNodeData => {
+        // Transform the raw data into the format required by 3d-force-graph
+        const transformedData = {
+          nodes: [],
+          links: []
+        };
+
+        // Populate the nodes and links arrays
+        rawNodeData.forEach(item => {
+          // Add each item as a node, using 'label' as the display name
+          // and assigning a 'group' for automatic coloring
+          transformedData.nodes.push({
+            id: item.id,
+            name: item.label,
+            group: item.parent ? 2 : 1
+          });
+
+          // If the node has a parent, create a link
+          if (item.parent) {
+            transformedData.links.push({
+              source: item.parent,
+              target: item.id
+            });
+          }
+        });
+        
+        // Initialize the 3D Force Graph with the transformed data
         const Graph = new ForceGraph3D(document.getElementById('3d-graph'))
-          // Pass the fetched data to the graph
-          .graphData(data)
-          // Automatically color nodes based on their 'group' property
+          .graphData(transformedData)
           .nodeAutoColorBy('group')
-          // Custom function to create a text sprite for each node's label
           .nodeThreeObject(node => {
-            const sprite = new SpriteText(node.name || node.id); // Use name or id as label
-            sprite.material.depthWrite = false; // Make sprite always visible
+            const sprite = new SpriteText(node.name || node.id);
+            sprite.material.depthWrite = false;
             sprite.color = node.color;
             sprite.textHeight = 8;
             return sprite;
           })
-          // Disable automatic positioning adjustments for the custom object
           .nodeThreeObjectExtend(true)
-          .linkWidth(1); // Set the width of the links
+          .linkWidth(1);
 
         // Adjust the force strength to spread nodes out a little more
         Graph.d3Force('charge').strength(-250);
