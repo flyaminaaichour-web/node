@@ -25,48 +25,38 @@
     // Import a library for creating 3D text labels
     import SpriteText from "https://esm.sh/three-spritetext";
 
-    // Define the graph data structure with nodes and links
-    // This replaces the need for an external JSON file
-    const myGraphData = {
-      nodes: [
-        { id: "A", name: "Node A", group: 1 },
-        { id: "B", name: "Node B", group: 1 },
-        { id: "C", name: "Node C", group: 2 },
-        { id: "D", name: "Node D", group: 2 },
-        { id: "E", name: "Node E", group: 3 },
-        { id: "F", name: "Node F", group: 3 }
-      ],
-      links: [
-        { source: "A", target: "B" },
-        { source: "A", target: "C" },
-        { source: "B", target: "D" },
-        { source: "C", target: "E" },
-        { source: "D", target: "F" },
-        { source: "E", target: "F" }
-      ]
-    };
-
-    // Initialize the 3D Force Graph
-    const Graph = new ForceGraph3D(document.getElementById('3d-graph'))
-      // Pass the hard-coded data to the graph
-      .graphData(myGraphData)
-      // Automatically color nodes based on their 'group' property
-      .nodeAutoColorBy('group')
-      // Custom function to create a text sprite for each node's label
-      .nodeThreeObject(node => {
-        const sprite = new SpriteText(node.name);
-        sprite.material.depthWrite = false; // Make sprite always visible
-        sprite.color = node.color;
-        sprite.textHeight = 8;
-        return sprite;
+    // Fetch the graph data from your nodePositions.json file
+    fetch('nodePositions.json')
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return response.json();
       })
-      // Disable automatic positioning adjustments for the custom object
-      .nodeThreeObjectExtend(true)
-      .linkWidth(1); // Set the width of the links
+      .then(data => {
+        const Graph = new ForceGraph3D(document.getElementById('3d-graph'))
+          // Pass the fetched data to the graph
+          .graphData(data)
+          // Automatically color nodes based on their 'group' property
+          .nodeAutoColorBy('group')
+          // Custom function to create a text sprite for each node's label
+          .nodeThreeObject(node => {
+            const sprite = new SpriteText(node.name || node.id); // Use name or id as label
+            sprite.material.depthWrite = false; // Make sprite always visible
+            sprite.color = node.color;
+            sprite.textHeight = 8;
+            return sprite;
+          })
+          // Disable automatic positioning adjustments for the custom object
+          .nodeThreeObjectExtend(true)
+          .linkWidth(1); // Set the width of the links
 
-    // Adjust the force strength to spread nodes out a little more
-    Graph.d3Force('charge').strength(-250);
-
+        // Adjust the force strength to spread nodes out a little more
+        Graph.d3Force('charge').strength(-250);
+      })
+      .catch(error => {
+        console.error("Failed to load graph data:", error);
+      });
   </script>
 </body>
 </html>
