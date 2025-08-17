@@ -73,16 +73,23 @@
           .nodeThreeObjectExtend(true)
           .linkWidth(1);
 
-        // --- NEW CODE ADDED HERE ---
         // Toggle fixed position on node click
+        // When a node is clicked, its fixed position is toggled on or off.
         Graph.onNodeClick(node => {
-          // Set or unset the fixed position
-          node.fx = node.fx === null ? node.x : null;
-          node.fy = node.fy === null ? node.y : null;
-          node.fz = node.fz === null ? node.z : null;
+          // Check if the node's position is currently fixed
+          if (node.fx === null) {
+            // If not fixed, set the fixed position to its current coordinates
+            node.fx = node.x;
+            node.fy = node.y;
+            node.fz = node.z;
+          } else {
+            // If it is fixed, un-fix it by setting the values back to null
+            node.fx = null;
+            node.fy = null;
+            node.fz = null;
+          }
         });
-        // --- END OF NEW CODE ---
-
+        
         // Adjust the force strength to spread nodes out a little more
         Graph.d3Force('charge').strength(-250);
       })
