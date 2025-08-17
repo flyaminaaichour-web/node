@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Three.js Minimal Example</title>
+    <title>Three.js Text Nodes</title>
     <style>
         body { margin: 0; }
         canvas { display: block; }
@@ -15,27 +15,100 @@
         
         // Camera
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.z = 5;
+        camera.position.z = 12;
         
         // Renderer
-        const renderer = new THREE.WebGLRenderer();
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
         
-        // Cube
-        const geometry = new THREE.BoxGeometry();
-        const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-        const cube = new THREE.Mesh(geometry, material);
-        scene.add(cube);
+        // Light
+        const light = new THREE.DirectionalLight(0xffffff, 1);
+        light.position.set(5, 5, 5);
+        scene.add(light);
+
+        // Font loader
+        const loader = new THREE.FontLoader();
+        loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (font) {
+            const texts = [
+                { text: 'One', color: 0xff0000, pos: [-4, 2, 0] },
+                { text: 'Two', color: 0x00ff00, pos: [4, 2, 0] },
+                { text: 'Three', color: 0x0000ff, pos: [0, -2, 0] }
+            ];
+            
+            // Create text meshes
+            texts.forEach((item, index) => {
+                const geometry = new THREE.TextGeometry(item.text, {
+                    font: font,
+                    size: 1,
+                    height: 0.2
+                });
+                geometry.computeBoundingBox();
+                geometry.center();
+                
+                const material = new THREE.MeshPhongMaterial({ color: item.color });
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.position.set(...item.pos);
+                mesh.userData = { offset: index * 2 }; // For animation offset
+                scene.add(mesh);
+                item.mesh = mesh; // Store mesh for animation
+            });
+
+            // Line material
+            const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
+
+            // Create line geometries for each connection
+            const connections = [
+                [texts[0], texts[1]], // One ↔ Two
+                [texts[1], texts[2]], // Two ↔ Three
+                [texts[2], texts[0]]  // Three ↔ One
+            ];
+
+            const lines = connections.map(pair => {
+                const points = [
+                    new THREE.Vector3(),
+                    new THREE.Vector3()
+                ];
+                const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                const line = new THREE.Line(geometry, lineMaterial);
+                scene.add(line);
+                return { line, pair };
+            });
+
+            // Animation loop
+            function animate(time) {
+                requestAnimationFrame(animate);
+
+                // Animate text nodes
+                texts.forEach(item => {
+                    item.mesh.position.y = item.pos[1] + Math.sin(time * 0.001 + item.mesh.userData.offset) * 0.5;
+                    item.mesh.rotation.y += 0.01;
+                });
+
+                // Update line positions
+                lines.forEach(conn => {
+                    const [a, b] = conn.pair;
+                    const positions = conn.line.geometry.attributes.position.array;
+                    positions[0] = a.mesh.position.x;
+                    positions[1] = a.mesh.position.y;
+                    positions[2] = a.mesh.position.z;
+                    positions[3] = b.mesh.position.x;
+                    positions[4] = b.mesh.position.y;
+                    positions[5] = b.mesh.position.z;
+                    conn.line.geometry.attributes.position.needsUpdate = true;
+                });
+
+                renderer.render(scene, camera);
+            }
+            animate(0);
+        });
         
-        // Animation loop
-        function animate() {
-            requestAnimationFrame(animate);
-            cube.rotation.x += 0.01;
-            cube.rotation.y += 0.01;
-            renderer.render(scene, cube);
-        }
-        animate();
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
     </script>
 </body>
 </html>
