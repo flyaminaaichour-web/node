@@ -28,6 +28,7 @@
 <script>
   let scene, camera, renderer, labelRenderer, controls;
   let nodes = {};
+  let edges = [];
   let raycaster = new THREE.Raycaster();
   let mouse = new THREE.Vector2();
   let selectedNode = null;
@@ -77,8 +78,8 @@
         const material = new THREE.MeshStandardMaterial({ color: 0x00ffcc });
 
         nodes = {};
-        scene.clear();
-        scene.add(new THREE.PointLight(0xffffff, 1));
+        edges.forEach(e => scene.remove(e.line));
+        edges = [];
 
         data.forEach(node => {
           const sphere = new THREE.Mesh(geometry, material.clone());
@@ -97,21 +98,19 @@
           nodes[node.id] = { ...node, mesh: sphere };
         });
 
-        // Draw edges
+        // Create edges
         const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
         data.forEach(node => {
           if (node.parent && nodes[node.parent]) {
             const parentMesh = nodes[node.parent].mesh;
             const childMesh = nodes[node.id].mesh;
 
-            const points = [
-              parentMesh.position.clone(),
-              childMesh.position.clone()
-            ];
-
+            const points = [parentMesh.position.clone(), childMesh.position.clone()];
             const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
             const line = new THREE.Line(lineGeometry, lineMaterial);
             scene.add(line);
+
+            edges.push({ line, parent: parentMesh, child: childMesh });
           }
         });
       });
@@ -133,7 +132,7 @@
       body: JSON.stringify(updated)
     })
     .then(res => res.json())
-    .then(msg => alert("Saved!"));
+    .then(msg => alert("✅ Saved!"));
   }
 
   function onResize() {
@@ -170,12 +169,20 @@
 
     if (intersection) {
       selectedNode.position.copy(intersection.sub(offset));
+      updateEdges();
     }
   }
 
   function onMouseUp() {
     selectedNode = null;
     controls.enabled = true;
+  }
+
+  function updateEdges() {
+    edges.forEach(edge => {
+      const points = [edge.parent.position.clone(), edge.child.position.clone()];
+      edge.line.geometry.setFromPoints(points);
+    });
   }
 
   function animate() {
