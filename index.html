@@ -1,127 +1,112 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Three.js Draggable Graph</title>
-  <style>
-    body { margin: 0; overflow: hidden; }
-    canvas { display: block; }
-  </style>
+  <title>Draggable Text Graph</title>
+  <style>body{margin:0;overflow:hidden}canvas{display:block}</style>
 </head>
 <body>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
 <script src="https://threejs.org/examples/js/controls/DragControls.js"></script>
 <script>
-// === SCENE SETUP ===
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
 camera.position.set(0, 0, 80);
+camera.lookAt(0,0,0);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setSize(innerWidth, innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// Light
-const light = new THREE.DirectionalLight(0xffffff, 1);
-light.position.set(50, 50, 50);
-scene.add(light);
+// lights
+scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+const dir = new THREE.DirectionalLight(0xffffff, 1);
+dir.position.set(50,50,50);
+scene.add(dir);
 
-// Controls
+// controls
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
-// === DATA (you can replace this with fetch("nodePositions.json")) ===
-const data = [
-    { id: 1, label: "Interests", x: 0, y: 0, z: 0 },
-    { id: 2, label: "Music", parent: 1, x: 20, y: 10, z: 5 },
-    { id: 3, label: "Coding", parent: 1, x: -15, y: -8, z: -10 },
-    { id: 4, label: "Design", parent: 1, x: 10, y: -20, z: 8 },
-    { id: 5, label: "Piano", parent: 2, x: 30, y: 15, z: 10 }
-];
+const fontLoader = new THREE.FontLoader();
 
-// === FONT LOADER ===
-const loader = new THREE.FontLoader();
-loader.load("https://threejs.org/examples/fonts/helvetiker_regular.typeface.json", function(font) {
-    
-    const nodes = {};
-    const objects = []; // store draggable objects
-    const edges = [];
-
-    // Create text meshes for each node
-    data.forEach(node => {
-        const geometry = new THREE.TextGeometry(node.label, {
-            font: font,
-            size: 2,
-            height: 0.3
-        });
-        geometry.computeBoundingBox();
-        geometry.center();
-
-        const material = new THREE.MeshPhongMaterial({ color: 0x00aaff });
-        const mesh = new THREE.Mesh(geometry, material);
-
-        mesh.position.set(node.x, node.y, node.z);
-        scene.add(mesh);
-
-        nodes[node.id] = mesh;
-        objects.push(mesh);
-
-        // Connect to parent
-        if (node.parent) {
-            edges.push([node.parent, node.id]);
-        }
-    });
-
-    // Create line material and lines
-    const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
-    const lines = edges.map(([parentId, childId]) => {
-        const points = [new THREE.Vector3(), new THREE.Vector3()];
-        const geometry = new THREE.BufferGeometry().setFromPoints(points);
-        const line = new THREE.Line(geometry, lineMaterial);
-        scene.add(line);
-        return { line, parent: nodes[parentId], child: nodes[childId] };
-    });
-
-    // === DRAG CONTROLS ===
-    const dragControls = new THREE.DragControls(objects, camera, renderer.domElement);
-
-    // Disable orbit while dragging
-    dragControls.addEventListener('dragstart', function (event) {
-        controls.enabled = false;
-    });
-    dragControls.addEventListener('dragend', function (event) {
-        controls.enabled = true;
-    });
-
-    // === ANIMATE ===
-    function animate() {
-        requestAnimationFrame(animate);
-
-        // Update line positions
-        lines.forEach(conn => {
-            const positions = conn.line.geometry.attributes.position.array;
-            positions[0] = conn.parent.position.x;
-            positions[1] = conn.parent.position.y;
-            positions[2] = conn.parent.position.z;
-
-            positions[3] = conn.child.position.x;
-            positions[4] = conn.child.position.y;
-            positions[5] = conn.child.position.z;
-
-            conn.line.geometry.attributes.position.needsUpdate = true;
-        });
-
-        controls.update();
-        renderer.render(scene, camera);
-    }
-    animate();
+// --- load font, then data, then build ---
+fontLoader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', font => {
+  fetch('nodePositions.json')
+    .then(r => r.json())
+    .then(data => buildGraph(data, font))
+    .catch(err => console.error('Failed to load nodePositions.json:', err));
 });
 
-// Resize handler
-window.addEventListener("resize", () => {
-    camera.aspect = window.innerWidth/window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+function buildGraph(data, font) {
+  const nodesById = {};
+  const draggable = [];
+  const edges = [];
+
+  // create text nodes
+  data.forEach(n => {
+    const geo = new THREE.TextGeometry(n.label, { font, size: 2, height: 0.3 });
+    geo.computeBoundingBox(); geo.center();
+    const mat = new THREE.MeshPhongMaterial({ color: 0x00aaff });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(n.x, n.y, n.z);
+    scene.add(mesh);
+
+    nodesById[n.id] = mesh;
+    draggable.push(mesh);
+
+    if (n.parent) edges.push([n.parent, n.id]);
+  });
+
+  // lines
+  const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff });
+  const lines = edges.map(([aId, bId]) => {
+    const geom = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+    const line = new THREE.Line(geom, lineMat);
+    scene.add(line);
+    return { line, a: nodesById[aId], b: nodesById[bId] };
+  });
+
+  // drag controls
+  const drag = new THREE.DragControls(draggable, camera, renderer.domElement);
+  drag.addEventListener('dragstart', () => { controls.enabled = false; });
+  drag.addEventListener('dragend',   () => { controls.enabled = true; });
+
+  // optional: frame all nodes
+  frameAll(draggable);
+
+  // animate
+  (function animate(){
+    requestAnimationFrame(animate);
+
+    // update line endpoints
+    lines.forEach(c => {
+      const p = c.line.geometry.attributes.position.array;
+      p[0]=c.a.position.x; p[1]=c.a.position.y; p[2]=c.a.position.z;
+      p[3]=c.b.position.x; p[4]=c.b.position.y; p[5]=c.b.position.z;
+      c.line.geometry.attributes.position.needsUpdate = true;
+    });
+
+    controls.update();
+    renderer.render(scene, camera);
+  })();
+}
+
+function frameAll(objects) {
+  const box = new THREE.Box3();
+  objects.forEach(o => box.expandByObject(o));
+  const size = box.getSize(new THREE.Vector3()).length();
+  const center = box.getCenter(new THREE.Vector3());
+  controls.target.copy(center);
+  camera.position.copy(center.clone().add(new THREE.Vector3(0, 0, size * 0.8)));
+  camera.near = 0.1; camera.far = Math.max(1000, size * 5); camera.updateProjectionMatrix();
+  camera.lookAt(center);
+}
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
 });
 </script>
 </body>
