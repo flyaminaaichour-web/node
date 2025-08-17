@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Three.js Node Graph</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: black; }
+    canvas { display: block; }
+    #saveBtn {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      padding: 8px 12px;
+      background: #00ffcc;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+<button id="saveBtn">Save</button>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.156.1/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.156.1/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.156.1/examples/js/renderers/CSS2DRenderer.js"></script>
+<script>
+  let scene, camera, renderer, labelRenderer, controls;
+  let nodes = {};
+  let raycaster = new THREE.Raycaster();
+  let mouse = new THREE.Vector2();
+  let selectedNode = null;
+  let offset = new THREE.Vector3();
+
+  init();
+  loadNodes();
+  animate();
+
+  function init() {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x000000);
+
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 2000);
+    camera.position.set(50, 50, 100);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    labelRenderer = new THREE.CSS2DRenderer();
+    labelRenderer.setSize(window.innerWidth, window.innerHeight);
+    labelRenderer.domElement.style.position = "absolute";
+    labelRenderer.domElement.style.top = "0";
+    document.body.appendChild(labelRenderer.domElement);
+
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    const light = new THREE.PointLight(0xffffff, 1);
+    light.position.set(50, 50, 50);
+    scene.add(light);
+
+    window.addEventListener("resize", onResize);
+    window.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+
+    document.getElementById("saveBtn").addEventListener("click", saveNodes);
+  }
+
+  function loadNodes() {
+    fetch("/nodes")
+      .then(res => res.json())
+      .then(data => {
+        const geometry = new THREE.SphereGeometry(1.5, 16, 16);
+        const material = new THREE.MeshStandardMaterial({ color: 0x00ffcc });
+
+        nodes = {};
+        scene.clear();
+        scene.add(new THREE.PointLight(0xffffff, 1));
+
+        data.forEach(node => {
+          const sphere = new THREE.Mesh(geometry, material.clone());
+          sphere.position.set(node.x, node.y, node.z);
+          sphere.userData = node;
+          scene.add(sphere);
+
+          const div = document.createElement("div");
+          div.textContent = node.label;
+          div.style.color = "white";
+          div.style.fontSize = "14px";
+          const label = new THREE.CSS2DObject(div);
+          label.position.set(0, 2, 0);
+          sphere.add(label);
+
+          nodes[node.id] = { ...node, mesh: sphere };
+        });
+
+        // Draw edges
+        const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
+        data.forEach(node => {
+          if (node.parent && nodes[node.parent]) {
+            const parentMesh = nodes[node.parent].mesh;
+            const childMesh = nodes[node.id].mesh;
+
+            const points = [
+              parentMesh.position.clone(),
+              childMesh.position.clone()
+            ];
+
+            const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
+            const line = new THREE.Line(lineGeometry, lineMaterial);
+            scene.add(line);
+          }
+        });
+      });
+  }
+
+  function saveNodes() {
+    const updated = Object.values(nodes).map(n => ({
+      id: n.id,
+      label: n.label,
+      parent: n.parent,
+      x: n.mesh.position.x,
+      y: n.mesh.position.y,
+      z: n.mesh.position.z
+    }));
+
+    fetch("/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updated)
+    })
+    .then(res => res.json())
+    .then(msg => alert("Saved!"));
+  }
+
+  function onResize() {
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    labelRenderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  function onMouseDown(event) {
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+
+    const intersects = raycaster.intersectObjects(Object.values(nodes).map(n => n.mesh));
+    if (intersects.length > 0) {
+      selectedNode = intersects[0].object;
+      controls.enabled = false;
+      const intersectPoint = intersects[0].point;
+      offset.copy(intersectPoint).sub(selectedNode.position);
+    }
+  }
+
+  function onMouseMove(event) {
+    if (!selectedNode) return;
+
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+
+    const planeZ = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+    const intersection = new THREE.Vector3();
+    raycaster.ray.intersectPlane(planeZ, intersection);
+
+    if (intersection) {
+      selectedNode.position.copy(intersection.sub(offset));
+    }
+  }
+
+  function onMouseUp() {
+    selectedNode = null;
+    controls.enabled = true;
+  }
+
+  function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+    labelRenderer.render(scene, camera);
+  }
+</script>
+</body>
+</html>
