@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+  <title>Interactive 3D Graph</title>
+
+  <style>
+
+    body {
+
+      margin: 0;
+
+      overflow: hidden; /* Prevent scroll bars */
+
+    }
+
+    #3d-graph {
+
+      width: 100vw;
+
+      height: 100vh;
+
+      background-color: #000;
+
+    }
+
+    #download-link {
+
+      position: absolute;
+
+      top: 10px;
+
+      right: 10px;
+
+      padding: 10px;
+
+      background-color: #333;
+
+      color: white;
+
+      text-decoration: none;
+
+      border-radius: 5px;
+
+      z-index: 1000;
+
+    }
+
+    #download-link:hover {
+
+      background-color: #555;
+
+    }
+
+  </style>
+
+
+
+  <!-- Main library for the 3D force graph -->
+
+  <script src="//cdn.jsdelivr.net/npm/3d-force-graph"></script>
+
+</head>
+
+
+
+<body>
+
+  <div id="3d-graph"></div>
+
+  <a id="download-link" download="nodePositions.json">Download Node Positions</a>
+
+
+
+  <script type="module">
+
+    import SpriteText from "https://esm.sh/three-spritetext";
+
+
+
+    let downloadUrl = null;
+
+
+
+    const updateDownloadLink = (graph) => {
+
+        const currentNodes = graph.graphData().nodes;
+
+        const currentLinks = graph.graphData().links;
+
+        const nodesToSave = [];
+
+
+
+        currentNodes.forEach(node => {
+
+            const parentLink = currentLinks.find(link => link.target.id === node.id);
+
+            const parentId = parentLink ? parentLink.source.id : undefined;
+
+
+
+            nodesToSave.push({
+
+                id: node.id,
+
+                label: node.name,
+
+                x: node.x,
+
+                y: node.y,
+
+                z: node.z,
+
+                parent: parentId
+
+            });
+
+        });
+
+
+
+        const jsonString = JSON.stringify(nodesToSave, null, 2);
+
+
+
+        if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+
+
+
+        const blob = new Blob([jsonString], { type: 'application/json' });
+
+        downloadUrl = URL.createObjectURL(blob);
+
+
+
+        const link = document.getElementById('download-link');
+
+        link.href = downloadUrl;
+
+    };
+
+
+
+    fetch('nodePositions.json')
+
+      .then(response => {
+
+        if (!response.ok) throw new Error('Network response was not ok');
+
+        return response.json();
+
+      })
+
+      .then(rawNodeData => {
+
+        const transformedData = { nodes: [], links: [] };
+
+
+
+        rawNodeData.forEach(item => {
+
+          transformedData.nodes.push({
+
+            id: item.id,
+
+            name: item.label,
+
+            group: item.parent ? 2 : 1
+
+          });
+
+
+
+          if (item.parent) {
+
+            transformedData.links.push({
+
+              source: item.parent,
+
+              target: item.id
+
+            });
+
+          }
+
+        });
+
+        
+
+        const Graph = new ForceGraph3D(document.getElementById('3d-graph'))
+
+          .graphData(transformedData)
+
+          .nodeAutoColorBy('group')
+
+          .nodeRelSize(0)
+
+          .nodeThreeObject(node => {
+
+            const sprite = new SpriteText(node.name || node.id);
+
+            sprite.material.depthWrite = false;
+
+            sprite.color = node.color;
+
+            sprite.textHeight = 8;
+
+
+
+            const group = new Graph.three.Group();
+
+            group.add(sprite);
+
+            return group;
+
+          })
+
+          .nodeThreeObjectExtend(false) 
+
+          .linkWidth(1);
+
+
+
+        Graph.onNodeDragEnd(node => {
+
+            node.fx = node.x;
+
+            node.fy = node.y;
+
+            node.fz = node.z;
+
+            updateDownloadLink(Graph);
+
+        });
+
+        
+
+        Graph.d3Force('charge').strength(-250);
+
+
+
+        updateDownloadLink(Graph);
+
+      })
+
+      .catch(error => {
+
+        console.error("Failed to load graph data:", error);
+
+        alert("Failed to load initial graph data. Please ensure 'nodePositions.json' is accessible.");
+
+      });
+
+  </script>
+
+</body>
+
+</html>
