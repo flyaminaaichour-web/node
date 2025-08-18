@@ -1,100 +1,166 @@
-// Import the necessary Node.js modules
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
-
-const PORT = 3000;
-
-// Create the server
-const server = http.createServer((req, res) => {
-    // Log the request URL and method for debugging
-    console.log(`Request received: ${req.method} ${req.url}`);
-
-    // === Handle POST requests to save node positions ===
-    if (req.method === 'POST' && req.url === '/save-nodes') {
-        let body = '';
-        req.on('data', chunk => {
-            // Collect the data chunks from the request body
-            body += chunk.toString();
-        });
-
-        req.on('end', () => {
-            try {
-                // Parse the JSON data from the request body
-                const nodeData = JSON.parse(body);
-                const filePath = path.join(__dirname, 'nodePositions.json');
-
-                // Write the JSON data to the file
-                fs.writeFile(filePath, JSON.stringify(nodeData, null, 2), (err) => {
-                    if (err) {
-                        console.error('Error writing to file:', err);
-                        res.writeHead(500, { 'Content-Type': 'application/json' });
-                        res.end(JSON.stringify({ message: 'Error saving positions.' }));
-                    } else {
-                        console.log('Positions saved successfully!');
-                        res.writeHead(200, { 'Content-Type': 'application/json' });
-                        res.end(JSON.stringify({ message: 'Positions saved successfully.' }));
-                    }
-                });
-            } catch (e) {
-                // Handle JSON parsing errors
-                res.writeHead(400, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ message: 'Invalid JSON data.' }));
-            }
-        });
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Interactive 3D Graph</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden; /* Prevent scroll bars */
     }
+    #3d-graph {
+      width: 100vw;
+      height: 100vh;
+      background-color: #000;
+    }
+    #save-button {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1000;
+      padding: 8px 16px;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 8px;
+      border: 1px solid #fff;
+      background-color: rgba(255, 255, 255, 0.2);
+      color: #fff;
+      backdrop-filter: blur(5px);
+    }
+    #save-button:hover {
+        background-color: rgba(255, 255, 255, 0.4);
+    }
+  </style>
 
-    // === Handle GET requests for static files (HTML, JSON) ===
-    else if (req.method === 'GET') {
-        let filePath = '.' + req.url;
-        if (filePath === './') {
-            // Serve the main HTML file when the root URL is requested
-            filePath = './3d-force-graph.html'; 
+  <!-- Main library for the 3D force graph -->
+  <script src="//cdn.jsdelivr.net/npm/3d-force-graph"></script>
+</head>
+
+<body>
+  <div id="3d-graph"></div>
+  <button id="save-button">Save Positions</button>
+
+  <script type="module">
+    // Import a library for creating 3D text labels
+    import SpriteText from "https://esm.sh/three-spritetext";
+
+    // Fetch the graph data from the nodePositions.json file
+    fetch('nodePositions.json')
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
         }
-
-        // Handle the case where the user's HTML file has a different name
-        // The user's HTML file in the immersive is named: 3d-force-graph
-        if (filePath.endsWith('3d-force-graph')) {
-            filePath = './3d-force-graph.html';
-        }
-
-        // Get the file extension and set the content type
-        const extname = String(path.extname(filePath)).toLowerCase();
-        const mimeTypes = {
-            '.html': 'text/html',
-            '.js': 'text/javascript',
-            '.json': 'application/json'
+        return response.json();
+      })
+      .then(rawNodeData => {
+        // Transform the raw data into the format required by 3d-force-graph
+        const transformedData = {
+          nodes: [],
+          links: []
         };
-        const contentType = mimeTypes[extname] || 'application/octet-stream';
 
-        // Read the file and send it as the response
-        fs.readFile(filePath, (err, content) => {
-            if (err) {
-                if (err.code === 'ENOENT') {
-                    // File not found
-                    res.writeHead(404);
-                    res.end('File not found: ' + req.url);
-                } else {
-                    // Other server errors
-                    res.writeHead(500);
-                    res.end('Server error: ' + err.code);
-                }
-            } else {
-                // Success
-                res.writeHead(200, { 'Content-Type': contentType });
-                res.end(content, 'utf-8');
-            }
+        // Populate the nodes and links arrays
+        rawNodeData.forEach(item => {
+          // Add each item as a node, using 'label' as the display name
+          // and assigning a 'group' for automatic coloring
+          transformedData.nodes.push({
+            id: item.id,
+            name: item.label,
+            group: item.parent ? 2 : 1
+          });
+
+          // If the node has a parent, create a link
+          if (item.parent) {
+            transformedData.links.push({
+              source: item.parent,
+              target: item.id
+            });
+          }
         });
-    }
+        
+        // Initialize the 3D Force Graph with the transformed data
+        const Graph = new ForceGraph3D(document.getElementById('3d-graph'))
+          .graphData(transformedData)
+          .nodeAutoColorBy('group')
+          // NEW CHANGE: Hide the default sphere and render only the text label
+          .nodeThreeObject(node => {
+            // Create the text sprite for the label
+            const sprite = new SpriteText(node.name || node.id);
+            sprite.material.depthWrite = false;
+            sprite.color = node.color;
+            sprite.textHeight = 8;
+            
+            // To hide the sphere, return an empty Group object from THREE.js
+            // The sprite will be added to this group, effectively replacing the sphere
+            const group = new THREE.Group();
+            group.add(sprite);
+            return group;
+          })
+          .nodeThreeObjectExtend(true)
+          .linkWidth(1);
 
-    // Handle any other request methods
-    else {
-        res.writeHead(405, { 'Content-Type': 'text/plain' });
-        res.end('Method not allowed.');
-    }
-});
+        // Pin the node's position after it is dragged.
+        Graph.onNodeDragEnd(node => {
+            node.fx = node.x;
+            node.fy = node.y;
+            node.fz = node.z;
+        });
+        
+        // Adjust the force strength to spread nodes out a little more
+        Graph.d3Force('charge').strength(-250);
 
-// Start the server and listen on the specified port
-server.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}/`);
-});
+        // Function to save the current node positions
+        const saveNodePositions = () => {
+            // Re-transform the graph data back into the original JSON format
+            const currentNodes = Graph.graphData().nodes;
+            const currentLinks = Graph.graphData().links;
+            const nodesToSave = [];
+
+            currentNodes.forEach(node => {
+                const parentLink = currentLinks.find(link => link.target === node.id);
+                const parentId = parentLink ? parentLink.source.id : undefined;
+
+                nodesToSave.push({
+                    id: node.id,
+                    label: node.name,
+                    x: node.x,
+                    y: node.y,
+                    z: node.z,
+                    parent: parentId
+                });
+            });
+
+            // Use fetch to send the data to a server endpoint
+            // NOTE: This will not work without a server-side component (like a Vercel Function)
+            fetch('/save-nodes', { // Replace '/save-nodes' with your actual serverless function endpoint
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(nodesToSave)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Save failed. A server-side function is required to handle the request.');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Positions saved successfully:', data);
+                alert('Positions saved successfully!');
+            })
+            .catch(error => {
+                console.error('Error saving positions:', error);
+                alert('Error saving positions: ' + error.message);
+            });
+        };
+
+        // Add event listener to the button
+        document.getElementById('save-button').addEventListener('click', saveNodePositions);
+      })
+      .catch(error => {
+        console.error("Failed to load graph data:", error);
+        alert("Failed to load initial graph data. Please ensure 'nodePositions.json' is accessible.");
+      });
+  </script>
+</body>
+</html>
