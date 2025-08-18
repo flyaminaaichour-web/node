@@ -12,8 +12,20 @@
       height: 100vh;
       background-color: #000;
     }
- 
-
+    #download-link {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      padding: 10px;
+      background-color: #333;
+      color: white;
+      text-decoration: none;
+      border-radius: 5px;
+      z-index: 1000;
+    }
+    #download-link:hover {
+      background-color: #555;
+    }
   </style>
 
   <!-- Main library for the 3D force graph -->
@@ -22,6 +34,7 @@
 
 <body>
   <div id="3d-graph"></div>
+  <a id="download-link" download="nodePositions.json">Download Node Positions</a>
 
   <script type="module">
     import SpriteText from "https://esm.sh/three-spritetext";
@@ -116,6 +129,3 @@
   </script>
 </body>
 </html>
-
-
-
