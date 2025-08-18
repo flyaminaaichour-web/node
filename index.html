@@ -12,6 +12,8 @@
       height: 100vh;
       background-color: #000;
     }
+ 
+
   </style>
 
   <!-- Main library for the 3D force graph -->
@@ -23,6 +25,38 @@
 
   <script type="module">
     import SpriteText from "https://esm.sh/three-spritetext";
+
+    let downloadUrl = null;
+
+    const updateDownloadLink = (graph) => {
+        const currentNodes = graph.graphData().nodes;
+        const currentLinks = graph.graphData().links;
+        const nodesToSave = [];
+
+        currentNodes.forEach(node => {
+            const parentLink = currentLinks.find(link => link.target.id === node.id);
+            const parentId = parentLink ? parentLink.source.id : undefined;
+
+            nodesToSave.push({
+                id: node.id,
+                label: node.name,
+                x: node.x,
+                y: node.y,
+                z: node.z,
+                parent: parentId
+            });
+        });
+
+        const jsonString = JSON.stringify(nodesToSave, null, 2);
+
+        if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        downloadUrl = URL.createObjectURL(blob);
+
+        const link = document.getElementById('download-link');
+        link.href = downloadUrl;
+    };
 
     fetch('nodePositions.json')
       .then(response => {
@@ -68,9 +102,12 @@
             node.fx = node.x;
             node.fy = node.y;
             node.fz = node.z;
+            updateDownloadLink(Graph);
         });
         
         Graph.d3Force('charge').strength(-250);
+
+        updateDownloadLink(Graph);
       })
       .catch(error => {
         console.error("Failed to load graph data:", error);
@@ -79,3 +116,6 @@
   </script>
 </body>
 </html>
+
+
+remove the button save
