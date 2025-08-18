@@ -29,7 +29,7 @@
     #save-button:hover {
         background-color: rgba(255, 255, 255, 0.4);
     }
-    #download-container {
+    #status-container {
         position: absolute;
         top: 10px;
         left: 170px;
@@ -40,7 +40,6 @@
         background-color: rgba(255, 255, 255, 0.2);
         border-radius: 8px;
         backdrop-filter: blur(5px);
-        display: none; /* Initially hidden */
     }
     #download-link {
         color: #87CEEB; /* A light blue color to make it stand out */
@@ -56,9 +55,8 @@
 <body>
   <div id="3d-graph"></div>
   <button id="save-button">Save Positions</button>
-  <div id="download-container">
-    <span id="download-message">Click here to download: </span>
-    <a id="download-link" href="#">nodePositions.json</a>
+  <div id="status-container">
+    <span id="status-message"></span>
   </div>
 
   <script type="module">
@@ -132,6 +130,9 @@
 
         // Function to save the current node positions and prepare the download
         const saveNodePositions = () => {
+            const statusMessage = document.getElementById('status-message');
+            statusMessage.textContent = 'Generating download file...';
+
             // Re-transform the graph data back into the original JSON format
             const currentNodes = Graph.graphData().nodes;
             const currentLinks = Graph.graphData().links;
@@ -160,13 +161,17 @@
             // Create a URL for the Blob
             const url = URL.createObjectURL(blob);
 
-            // Get the link element and set its attributes
-            const downloadLink = document.getElementById('download-link');
+            // Create and append the new download link
+            const downloadLink = document.createElement('a');
             downloadLink.href = url;
             downloadLink.download = 'nodePositions.json';
+            downloadLink.textContent = 'Download now!';
+            downloadLink.style.color = '#87CEEB';
+            downloadLink.style.textDecoration = 'underline';
 
-            // Show the download container to the user
-            document.getElementById('download-container').style.display = 'block';
+            // Clear the status message and append the new link
+            statusMessage.textContent = 'Click to download: ';
+            statusMessage.appendChild(downloadLink);
 
             // Clean up the URL after a short delay
             setTimeout(() => {
