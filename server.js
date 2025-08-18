@@ -12,27 +12,10 @@
       height: 100vh;
       background-color: #000;
     }
-    #save-button {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 1000;
-      padding: 8px 16px;
-      font-size: 16px;
-      cursor: pointer;
-      border-radius: 8px;
-      border: 1px solid #fff;
-      background-color: rgba(255, 255, 255, 0.2);
-      color: #fff;
-      backdrop-filter: blur(5px);
-    }
-    #save-button:hover {
-        background-color: rgba(255, 255, 255, 0.4);
-    }
     #status-container {
         position: absolute;
         top: 10px;
-        left: 170px;
+        left: 10px;
         z-index: 1000;
         padding: 8px 16px;
         font-size: 16px;
@@ -54,14 +37,53 @@
 
 <body>
   <div id="3d-graph"></div>
-  <button id="save-button">Save Positions</button>
   <div id="status-container">
     <span id="status-message"></span>
+    <a id="download-link" href="#">Download Positions</a>
   </div>
 
   <script type="module">
     // Import a library for creating 3D text labels
     import SpriteText from "https://esm.sh/three-spritetext";
+
+    let downloadUrl = null;
+
+    // Function to generate and update the download link's URL
+    const updateDownloadLink = (graph) => {
+        // Re-transform the graph data back into the original JSON format
+        const currentNodes = graph.graphData().nodes;
+        const currentLinks = graph.graphData().links;
+        const nodesToSave = [];
+
+        currentNodes.forEach(node => {
+            const parentLink = currentLinks.find(link => link.target.id === node.id);
+            const parentId = parentLink ? parentLink.source.id : undefined;
+
+            nodesToSave.push({
+                id: node.id,
+                label: node.name,
+                x: node.x,
+                y: node.y,
+                z: node.z,
+                parent: parentId
+            });
+        });
+
+        // Convert the data to a JSON string
+        const jsonString = JSON.stringify(nodesToSave, null, 2);
+
+        // Revoke the previous URL to free up memory
+        if (downloadUrl) {
+            URL.revokeObjectURL(downloadUrl);
+        }
+
+        // Create a Blob from the JSON string
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        
+        // Create a new URL for the Blob
+        downloadUrl = URL.createObjectURL(blob);
+        document.getElementById('download-link').href = downloadUrl;
+    };
 
     // Fetch the graph data from the nodePositions.json file
     fetch('nodePositions.json')
@@ -118,69 +140,19 @@
           .nodeThreeObjectExtend(false) 
           .linkWidth(1);
 
-        // Pin the node's position after it is dragged.
+        // Pin the node's position after it is dragged and update the download link
         Graph.onNodeDragEnd(node => {
             node.fx = node.x;
             node.fy = node.y;
             node.fz = node.z;
+            updateDownloadLink(Graph);
         });
         
         // Adjust the force strength to spread nodes out a little more
         Graph.d3Force('charge').strength(-250);
 
-        // Function to save the current node positions and prepare the download
-        const saveNodePositions = () => {
-            const statusMessage = document.getElementById('status-message');
-            statusMessage.textContent = 'Generating download file...';
-
-            // Re-transform the graph data back into the original JSON format
-            const currentNodes = Graph.graphData().nodes;
-            const currentLinks = Graph.graphData().links;
-            const nodesToSave = [];
-
-            currentNodes.forEach(node => {
-                const parentLink = currentLinks.find(link => link.target.id === node.id);
-                const parentId = parentLink ? parentLink.source.id : undefined;
-
-                nodesToSave.push({
-                    id: node.id,
-                    label: node.name,
-                    x: node.x,
-                    y: node.y,
-                    z: node.z,
-                    parent: parentId
-                });
-            });
-
-            // Convert the data to a JSON string
-            const jsonString = JSON.stringify(nodesToSave, null, 2);
-
-            // Create a Blob from the JSON string
-            const blob = new Blob([jsonString], { type: 'application/json' });
-            
-            // Create a URL for the Blob
-            const url = URL.createObjectURL(blob);
-
-            // Create and append the new download link
-            const downloadLink = document.createElement('a');
-            downloadLink.href = url;
-            downloadLink.download = 'nodePositions.json';
-            downloadLink.textContent = 'Download now!';
-            downloadLink.style.color = '#87CEEB';
-            downloadLink.style.textDecoration = 'underline';
-
-            // Clear the status message and append the new link
-            statusMessage.textContent = 'Click to download: ';
-            statusMessage.appendChild(downloadLink);
-
-            // Clean up the URL after a short delay
-            setTimeout(() => {
-                URL.revokeObjectURL(url);
-            }, 60000); // Revoke after 60 seconds
-        };
-
-        // Add event listener to the button
-        document.getElementById('save-button').addEventListener('click', saveNodePositions);
+        // Initialize the download link for the first time
+        updateDownloadLink(Graph);
       })
       .catch(error => {
         console.error("Failed to load graph data:", error);
