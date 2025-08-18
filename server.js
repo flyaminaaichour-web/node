@@ -29,6 +29,24 @@
     #save-button:hover {
         background-color: rgba(255, 255, 255, 0.4);
     }
+    #download-container {
+        position: absolute;
+        top: 10px;
+        left: 170px;
+        z-index: 1000;
+        padding: 8px 16px;
+        font-size: 16px;
+        color: #fff;
+        background-color: rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        backdrop-filter: blur(5px);
+        display: none; /* Initially hidden */
+    }
+    #download-link {
+        color: #87CEEB; /* A light blue color to make it stand out */
+        text-decoration: underline;
+        cursor: pointer;
+    }
   </style>
 
   <!-- Main library for the 3D force graph -->
@@ -38,6 +56,10 @@
 <body>
   <div id="3d-graph"></div>
   <button id="save-button">Save Positions</button>
+  <div id="download-container">
+    <span id="download-message">Click here to download: </span>
+    <a id="download-link" href="#">nodePositions.json</a>
+  </div>
 
   <script type="module">
     // Import a library for creating 3D text labels
@@ -108,7 +130,7 @@
         // Adjust the force strength to spread nodes out a little more
         Graph.d3Force('charge').strength(-250);
 
-        // Function to save the current node positions
+        // Function to save the current node positions and prepare the download
         const saveNodePositions = () => {
             // Re-transform the graph data back into the original JSON format
             const currentNodes = Graph.graphData().nodes;
@@ -138,16 +160,18 @@
             // Create a URL for the Blob
             const url = URL.createObjectURL(blob);
 
-            // Create a temporary link element to trigger the download
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'nodePositions.json'; // The name of the downloaded file
-            document.body.appendChild(a);
-            a.click(); // Programmatically click the link to trigger the download
-            document.body.removeChild(a); // Clean up the temporary link
+            // Get the link element and set its attributes
+            const downloadLink = document.getElementById('download-link');
+            downloadLink.href = url;
+            downloadLink.download = 'nodePositions.json';
 
-            // Revoke the URL to free up memory
-            URL.revokeObjectURL(url);
+            // Show the download container to the user
+            document.getElementById('download-container').style.display = 'block';
+
+            // Clean up the URL after a short delay
+            setTimeout(() => {
+                URL.revokeObjectURL(url);
+            }, 60000); // Revoke after 60 seconds
         };
 
         // Add event listener to the button
