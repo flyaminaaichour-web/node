@@ -81,7 +81,7 @@
         const Graph = new ForceGraph3D(document.getElementById('3d-graph'))
           .graphData(transformedData)
           .nodeAutoColorBy('group')
-          .nodeRelSize(0) // This is the new change to hide the spheres
+          .nodeRelSize(0) // This sets the sphere size to zero
           .nodeThreeObject(node => {
             // Create the text sprite for the label
             const sprite = new SpriteText(node.name || node.id);
@@ -94,7 +94,8 @@
             group.add(sprite);
             return group;
           })
-          .nodeThreeObjectExtend(true)
+          // FIX: Set this to false to only render the custom object (the text)
+          .nodeThreeObjectExtend(false) 
           .linkWidth(1);
 
         // Pin the node's position after it is dragged.
