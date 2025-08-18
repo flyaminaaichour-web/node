@@ -12,6 +12,23 @@
       height: 100vh;
       background-color: #000;
     }
+    #save-button {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1000;
+      padding: 8px 16px;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 8px;
+      border: 1px solid #fff;
+      background-color: rgba(255, 255, 255, 0.2);
+      color: #fff;
+      backdrop-filter: blur(5px);
+    }
+    #save-button:hover {
+        background-color: rgba(255, 255, 255, 0.4);
+    }
   </style>
 
   <!-- Main library for the 3D force graph -->
@@ -20,6 +37,7 @@
 
 <body>
   <div id="3d-graph"></div>
+  <button id="save-button">Save Positions</button>
 
   <script type="module">
     // Import a library for creating 3D text labels
@@ -73,8 +91,7 @@
           .nodeThreeObjectExtend(true)
           .linkWidth(1);
 
-        // This is the new change: Pin the node's position after it is dragged.
-        // This prevents the "rubber band effect" and makes the node stay where it's dropped.
+        // Pin the node's position after it is dragged.
         Graph.onNodeDragEnd(node => {
             node.fx = node.x;
             node.fy = node.y;
@@ -83,6 +100,55 @@
         
         // Adjust the force strength to spread nodes out a little more
         Graph.d3Force('charge').strength(-250);
+
+        // Function to save the current node positions
+        const saveNodePositions = () => {
+            // Re-transform the graph data back into the original JSON format
+            const currentNodes = Graph.graphData().nodes;
+            const currentLinks = Graph.graphData().links;
+            const nodesToSave = [];
+
+            currentNodes.forEach(node => {
+                const parentLink = currentLinks.find(link => link.target.id === node.id);
+                const parentId = parentLink ? parentLink.source.id : undefined;
+
+                nodesToSave.push({
+                    id: node.id,
+                    label: node.name,
+                    x: node.x,
+                    y: node.y,
+                    z: node.z,
+                    parent: parentId
+                });
+            });
+
+            // Use fetch to send the data to a server endpoint
+            // NOTE: This will not work without a server-side component
+            fetch('/save-nodes', { // Replace '/save-nodes' with your actual server endpoint
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(nodesToSave)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Save failed');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Positions saved successfully:', data);
+                alert('Positions saved successfully!');
+            })
+            .catch(error => {
+                console.error('Error saving positions:', error);
+                alert('Error saving positions: ' + error.message);
+            });
+        };
+
+        // Add event listener to the button
+        document.getElementById('save-button').addEventListener('click', saveNodePositions);
       })
       .catch(error => {
         console.error("Failed to load graph data:", error);
