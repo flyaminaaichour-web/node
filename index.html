@@ -73,21 +73,12 @@
           .nodeThreeObjectExtend(true)
           .linkWidth(1);
 
-        // Toggle fixed position on node click
-        // When a node is clicked, its fixed position is toggled on or off.
-        Graph.onNodeClick(node => {
-          // Check if the node's position is currently fixed
-          if (node.fx === null) {
-            // If not fixed, set the fixed position to its current coordinates
+        // This is the new change: Pin the node's position after it is dragged.
+        // This prevents the "rubber band effect" and makes the node stay where it's dropped.
+        Graph.onNodeDragEnd(node => {
             node.fx = node.x;
             node.fy = node.y;
             node.fz = node.z;
-          } else {
-            // If it is fixed, un-fix it by setting the values back to null
-            node.fx = null;
-            node.fy = null;
-            node.fz = null;
-          }
         });
         
         // Adjust the force strength to spread nodes out a little more
