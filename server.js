@@ -94,7 +94,7 @@
             group.add(sprite);
             return group;
           })
-          // FIX: Set this to false to only render the custom object (the text)
+          // Set this to false to only render the custom object (the text)
           .nodeThreeObjectExtend(false) 
           .linkWidth(1);
 
@@ -116,7 +116,7 @@
             const nodesToSave = [];
 
             currentNodes.forEach(node => {
-                const parentLink = currentLinks.find(link => link.target === node.id);
+                const parentLink = currentLinks.find(link => link.target.id === node.id);
                 const parentId = parentLink ? parentLink.source.id : undefined;
 
                 nodesToSave.push({
@@ -129,29 +129,25 @@
                 });
             });
 
-            // Use fetch to send the data to a server endpoint
-            // NOTE: This will not work without a server-side component (like a Vercel Function)
-            fetch('/save-nodes', { // Replace '/save-nodes' with your actual serverless function endpoint
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(nodesToSave)
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Save failed. A server-side function is required to handle the request.');
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log('Positions saved successfully:', data);
-                alert('Positions saved successfully!');
-            })
-            .catch(error => {
-                console.error('Error saving positions:', error);
-                alert('Error saving positions: ' + error.message);
-            });
+            // Convert the data to a JSON string
+            const jsonString = JSON.stringify(nodesToSave, null, 2);
+
+            // Create a Blob from the JSON string
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            
+            // Create a URL for the Blob
+            const url = URL.createObjectURL(blob);
+
+            // Create a temporary link element to trigger the download
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'nodePositions.json'; // The name of the downloaded file
+            document.body.appendChild(a);
+            a.click(); // Programmatically click the link to trigger the download
+            document.body.removeChild(a); // Clean up the temporary link
+
+            // Revoke the URL to free up memory
+            URL.revokeObjectURL(url);
         };
 
         // Add event listener to the button
