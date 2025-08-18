@@ -81,7 +81,7 @@
         const Graph = new ForceGraph3D(document.getElementById('3d-graph'))
           .graphData(transformedData)
           .nodeAutoColorBy('group')
-          // NEW CHANGE: Hide the default sphere and render only the text label
+          // FIX: Use Graph.three.Group() to correctly access the Three.js library
           .nodeThreeObject(node => {
             // Create the text sprite for the label
             const sprite = new SpriteText(node.name || node.id);
@@ -89,9 +89,8 @@
             sprite.color = node.color;
             sprite.textHeight = 8;
             
-            // To hide the sphere, return an empty Group object from THREE.js
-            // The sprite will be added to this group, effectively replacing the sphere
-            const group = new THREE.Group();
+            // Return an empty Group object from the graph's Three.js instance
+            const group = new Graph.three.Group();
             group.add(sprite);
             return group;
           })
