@@ -435,12 +435,11 @@ function App() {
               fontSize: '12px',
               display: 'block',
               textAlign: 'center',
-              width: '100%'
+              marginBottom: '10px'
             }}
           >
             New Graph
           </button>
-          <h4 style={{ margin: '15px 0 10px 0', fontSize: '14px', color: '#ccc' }}>Position Controls</h4>
           <button
             onClick={saveGraphData}
             style={{
@@ -453,14 +452,13 @@ function App() {
               fontSize: '12px',
               display: 'block',
               textAlign: 'center',
-              width: '100%',
               marginBottom: '10px'
             }}
           >
             Save Graph Data
           </button>
           <label style={{
-            background: '#9C27B0',
+            background: '#673AB7',
             color: 'white',
             border: 'none',
             padding: '6px 10px',
@@ -469,10 +467,9 @@ function App() {
             fontSize: '12px',
             display: 'block',
             textAlign: 'center',
-            width: '100%',
             marginBottom: '10px'
           }}>
-            Load Positions
+            Load Node Positions
             <input
               type="file"
               accept=".json"
@@ -483,7 +480,7 @@ function App() {
           <button
             onClick={toggleFixedPositions}
             style={{
-              background: '#673AB7',
+              background: useFixedPositions ? '#FFC107' : '#009688',
               color: 'white',
               border: 'none',
               padding: '6px 10px',
@@ -495,7 +492,7 @@ function App() {
               width: '100%'
             }}
           >
-            {useFixedPositions ? 'Release Positions' : 'Fix Positions'}
+            {useFixedPositions ? 'Unfix Node Positions' : 'Fix Node Positions'}
           </button>
         </div>
 
@@ -649,10 +646,17 @@ function App() {
         }}
         onNodeClick={node => {
           // Center camera on clicked node
+          const distance = 400; // Adjust this value as needed
+          const distRatio = 1 + distance/Math.hypot(node.x, node.y, node.z);
+
           graphRef.current.cameraPosition(
-            { x: node.x + 100, y: node.y + 100, z: node.z + 100 }, // new position
+            {
+              x: node.x * distRatio,
+              y: node.y * distRatio,
+              z: node.z * distRatio
+            }, // new position
             node, // lookAt ({ x, y, z }) - center of target
-            3000  // ms transition duration
+            2000  // ms transition duration
           );
         }}
         linkColor={link => link.color || '#F0F0F0'}
@@ -663,5 +667,3 @@ function App() {
 }
 
 export default App
-
-
