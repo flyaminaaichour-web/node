@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useState } from 'react'
 import ForceGraph3D from 'react-force-graph-3d'
 import SpriteText from 'three-spritetext'
@@ -55,13 +56,12 @@ function App() {
 
   useEffect(() => {
     if (graphRef.current) {
-      // Re-heat the simulation when graphData changes
-      graphRef.current.d3Force("link").links(graphData.links)
-      graphRef.current.d3Force("charge").nodes(graphData.nodes)
-      graphRef.current.d3Force("alphaTarget", 0.3).restart()
-
-      // Update node and link objects in the simulation to reflect property changes
-      graphRef.current.graphData(graphData)
+      const forceLink = graphRef.current.d3Force("link");
+      if (forceLink) forceLink.links(graphData.links);
+      const forceCharge = graphRef.current.d3Force("charge");
+      if (forceCharge) forceCharge.nodes(graphData.nodes);
+      graphRef.current.d3ReheatSimulation();
+      graphRef.current.graphData(graphData);
     }
   }, [graphData])
 
@@ -251,6 +251,45 @@ function App() {
     setUseFixedPositions(!useFixedPositions)
   }
 
+  const onNodeClick = (node) => {
+    const distance = 400;
+    const distRatio = 1 + distance / Math.hypot(node.x, node.y, node.z);
+
+    console.log("Clicked node:", node.id, { x: node.x, y: node.y, z: node.z, fx: node.fx });
+
+    // Pause simulation during camera movement
+    graphRef.current.d3Force("charge").strength(0);
+    graphRef.current.d3Force("link").strength(0);
+
+    graphRef.current.cameraPosition(
+      { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio },
+      node,
+      2000
+    );
+
+    // Resume simulation after camera movement
+    setTimeout(() => {
+      graphRef.current.d3Force("charge").strength(-30); // Adjust strength as needed
+      graphRef.current.d3Force("link").strength(1);
+      graphRef.current.d3ReheatSimulation();
+    }, 2000);
+
+    // Ensure node is not fixed unless intended
+    if (!useFixedPositions) {
+      delete node.fx;
+      delete node.fy;
+      delete node.fz;
+      setGraphData(prevData => {
+        return {
+          ...prevData,
+          nodes: prevData.nodes.map(n =>
+            n.id === node.id ? { ...n, fx: undefined, fy: undefined, fz: undefined } : n
+          ),
+        };
+      });
+    }
+  };
+
   return (
     <div style={{ width: '100vw', height: '100vh', margin: 0, position: 'relative' }}>
       {/* Control Panel */}
@@ -339,12 +378,12 @@ function App() {
             <select
               value={selectedLinkId ? `${selectedLinkId.source.id}-${selectedLinkId.target.id}` : ''}
               onChange={(e) => {
-                const [sourceId, targetId] = e.target.value.split('-');
-                const link = graphData.links.find(l => l.source.id === sourceId && l.target.id === targetId);
-                setSelectedLinkId(link);
+                const [sourceId, targetId] = e.target.value.split('-')
+                const link = graphData.links.find(l => l.source.id === sourceId && l.target.id === targetId)
+                setSelectedLinkId(link)
                 if (link) {
-                  setSelectedLinkColor(link.color || "#F0F0F0");
-                  setSelectedLinkThickness(link.thickness || 1);
+                  setSelectedLinkColor(link.color || "#F0F0F0")
+                  setSelectedLinkThickness(link.thickness || 1)
                 }
               }}
               style={{
@@ -371,28 +410,28 @@ function App() {
               <div style={{ marginBottom: '10px' }}>
                 <label style={{ fontSize: '12px', marginRight: '10px' }}>Color:</label>
                 <input type="color" value={selectedLinkColor} onChange={(e) => {
-                  setSelectedLinkColor(e.target.value);
+                  setSelectedLinkColor(e.target.value)
                   setGraphData(prevData => ({
                     ...prevData,
                     links: prevData.links.map(link =>
                       (link.source.id === selectedLinkId.source.id && link.target.id === selectedLinkId.target.id)
                         ? { ...link, color: e.target.value } : link
                     )
-                  }));
+                  }))
                 }} />
               </div>
               <div style={{ marginBottom: '10px' }}>
                 <label style={{ fontSize: '12px', marginRight: '10px' }}>Thickness:</label>
                 <input type="range" min="0.1" max="5" step="0.1" value={selectedLinkThickness} onChange={(e) => {
-                  const thickness = parseFloat(e.target.value);
-                  setSelectedLinkThickness(thickness);
+                  const thickness = parseFloat(e.target.value)
+                  setSelectedLinkThickness(thickness)
                   setGraphData(prevData => ({
                     ...prevData,
                     links: prevData.links.map(link =>
                       (link.source.id === selectedLinkId.source.id && link.target.id === selectedLinkId.target.id)
                         ? { ...link, thickness: thickness } : link
                     )
-                  }));
+                  }))
                 }} />
                 <span style={{ fontSize: '12px', marginLeft: '5px' }}>{selectedLinkThickness}</span>
               </div>
@@ -433,8 +472,7 @@ function App() {
               borderRadius: '4px',
               cursor: 'pointer',
               fontSize: '12px',
-              display: 'block',
-              textAlign: 'center',
+              width: '100%',
               marginBottom: '10px'
             }}
           >
@@ -450,15 +488,14 @@ function App() {
               borderRadius: '4px',
               cursor: 'pointer',
               fontSize: '12px',
-              display: 'block',
-              textAlign: 'center',
+              width: '100%',
               marginBottom: '10px'
             }}
           >
             Save Graph Data
           </button>
           <label style={{
-            background: '#673AB7',
+            background: '#9C27B0',
             color: 'white',
             border: 'none',
             padding: '6px 10px',
@@ -480,190 +517,250 @@ function App() {
           <button
             onClick={toggleFixedPositions}
             style={{
-              background: useFixedPositions ? '#FFC107' : '#009688',
+              background: useFixedPositions ? '#f44336' : '#009688',
               color: 'white',
               border: 'none',
               padding: '6px 10px',
               borderRadius: '4px',
               cursor: 'pointer',
               fontSize: '12px',
-              display: 'block',
-              textAlign: 'center',
               width: '100%'
             }}
           >
-            {useFixedPositions ? 'Unfix Node Positions' : 'Fix Node Positions'}
+            {useFixedPositions ? 'Unlock Node Positions' : 'Lock Node Positions'}
           </button>
         </div>
 
-        {/* Node Manager Toggle */}
+        {/* Node Management */}
         <div style={{ marginBottom: '20px', borderBottom: '1px solid #444', paddingBottom: '15px' }}>
-          <button
-            onClick={() => setShowNodeManager(!showNodeManager)}
-            style={{
-              background: '#E91E63',
-              color: 'white',
-              border: 'none',
-              padding: '6px 10px',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '12px',
-              display: 'block',
-              textAlign: 'center',
-              width: '100%'
-            }}
-          >
-            {showNodeManager ? 'Hide Node Manager' : 'Show Node Manager'}
-          </button>
-        </div>
-
-        {/* Node Manager */}
-        {showNodeManager && (
-          <div style={{ marginBottom: '20px', borderBottom: '1px solid #444', paddingBottom: '15px' }}>
-            <h4 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#ccc' }}>Node Manager</h4>
-            <div style={{ marginBottom: '10px' }}>
-              <input
-                type="text"
-                placeholder="New Node ID"
-                value={newNodeId}
-                onChange={(e) => setNewNodeId(e.target.value)}
-                style={{
-                  width: 'calc(100% - 12px)',
-                  padding: '4px 6px',
-                  borderRadius: '3px',
-                  border: '1px solid #555',
-                  background: '#333',
-                  color: 'white',
-                  fontSize: '11px',
-                  marginBottom: '5px'
-                }}
-              />
-              <input
-                type="number"
-                placeholder="Group"
-                value={newNodeGroup}
-                onChange={(e) => setNewNodeGroup(e.target.value)}
-                style={{
-                  width: 'calc(100% - 12px)',
-                  padding: '4px 6px',
-                  borderRadius: '3px',
-                  border: '1px solid #555',
-                  background: '#333',
-                  color: 'white',
-                  fontSize: '11px'
-                }}
-              />
-            </div>
+          <h4 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#ccc' }}>Node Management</h4>
+          <div style={{ marginBottom: '8px' }}>
+            <input
+              type="text"
+              value={newNodeId}
+              onChange={(e) => setNewNodeId(e.target.value)}
+              placeholder="Enter New Node ID"
+              style={{
+                width: 'calc(100% - 12px)',
+                padding: '4px 6px',
+                borderRadius: '3px',
+                border: '1px solid #555',
+                background: '#333',
+                color: 'white',
+                fontSize: '11px',
+                marginBottom: '8px'
+              }}
+            />
             <button
               onClick={addNode}
               style={{
-                background: '#00BCD4',
+                background: '#2196F3',
                 color: 'white',
                 border: 'none',
                 padding: '6px 10px',
                 borderRadius: '4px',
                 cursor: 'pointer',
                 fontSize: '12px',
-                display: 'block',
-                textAlign: 'center',
-                width: '100%',
-                marginBottom: '10px'
+                width: '100%'
               }}
             >
               Add Node
             </button>
+          </div>
+          <div style={{ marginBottom: '8px' }}>
+            <select
+              value={selectedNodeId}
+              onChange={(e) => setSelectedNodeId(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '4px 6px',
+                borderRadius: '3px',
+                border: '1px solid #555',
+                background: '#333',
+                color: 'white',
+                fontSize: '11px',
+                marginBottom: '8px'
+              }}
+            >
+              <option value="">Select Node to Delete</option>
+              {graphData.nodes.map(node => (
+                <option key={node.id} value={node.id}>{node.id}</option>
+              ))}
+            </select>
             <button
               onClick={deleteNode}
               style={{
-                background: '#F44336',
+                background: '#f44336',
                 color: 'white',
                 border: 'none',
                 padding: '6px 10px',
                 borderRadius: '4px',
                 cursor: 'pointer',
                 fontSize: '12px',
-                display: 'block',
-                textAlign: 'center',
                 width: '100%'
               }}
             >
               Delete Selected Node
             </button>
           </div>
-        )}
-
-        {/* Filter by Category */}
-        <div style={{ marginBottom: '20px', borderBottom: '1px solid #444', paddingBottom: '15px' }}>
-          <button
-            onClick={() => {
-              const updatedNodes = graphData.nodes.map(node => ({
-                ...node,
-                // Assuming 'category' is a property in your node data
-                // You might need to adjust this logic based on your actual data structure
-                // For example, if 'category' is nested, you'd access it like node.properties.category
-                // For now, let's assume it's a direct property of the node object
-                // If the category is 'expense', set opacity to 1, otherwise set to 0.1
-                opacity: node.category === 'expense' ? 1 : 0.1
-              }));
-              setGraphData(prevData => ({ ...prevData, nodes: updatedNodes }));
-            }}
-            style={{
-              background: '#8BC34A',
-              color: 'white',
-              border: 'none',
-              padding: '6px 10px',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '12px',
-              display: 'block',
-              textAlign: 'center',
-              width: '100%'
-            }}
-          >
-            Show Only Expenses
-          </button>
         </div>
 
+        {/* Link Management */}
+        <div>
+          <h4 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#ccc' }}>Link Management</h4>
+          <div style={{ marginBottom: '8px' }}>
+            <select
+              value={sourceNodeId}
+              onChange={(e) => setSourceNodeId(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '4px 6px',
+                borderRadius: '3px',
+                border: '1px solid #555',
+                background: '#333',
+                color: 'white',
+                fontSize: '11px',
+                marginBottom: '8px'
+              }}
+            >
+              <option value="">Select Source Node</option>
+              {graphData.nodes.map(node => (
+                <option key={node.id} value={node.id}>{node.id}</option>
+              ))}
+            </select>
+            <select
+              value={targetNodeId}
+              onChange={(e) => setTargetNodeId(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '4px 6px',
+                borderRadius: '3px',
+                border: '1px solid #555',
+                background: '#333',
+                color: 'white',
+                fontSize: '11px',
+                marginBottom: '8px'
+              }}
+            >
+              <option value="">Select Target Node</option>
+              {graphData.nodes.map(node => (
+                <option key={node.id} value={node.id}>{node.id}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => addLink(sourceNodeId, targetNodeId)}
+              style={{
+                background: '#4CAF50',
+                color: 'white',
+                border: 'none',
+                padding: '6px 10px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                width: '100%'
+              }}
+            >
+              Add Link
+            </button>
+          </div>
+        </div>
       </div>
 
       <ForceGraph3D
-        key={graphResetKey} // Use key to force re-render
+        key={graphResetKey}
         ref={graphRef}
         graphData={graphData}
-        nodeLabel="id"
         nodeAutoColorBy="group"
-        linkDirectionalParticles={1}
-        linkDirectionalParticleWidth={1}
-        linkDirectionalParticleSpeed={d => d.value * 0.001}
         nodeThreeObject={node => {
-          const sprite = new SpriteText(node.id);
-          sprite.color = node.color || 'white';
-          sprite.textHeight = node.textSize || 6;
-          return sprite;
+          const sprite = new SpriteText(node.id)
+          sprite.color = node.color || 'white' // Use node color or default
+          sprite.textHeight = node.textSize || 6 // Use node text size or default
+          return sprite
         }}
-        onNodeDragEnd={node => {
-          // Do not fix node position on drag end to allow continuous movement
-        }}
-        onNodeClick={node => {
-          // Center camera on clicked node
-          const distance = 400; // Adjust this value as needed
-          const distRatio = 1 + distance/Math.hypot(node.x, node.y, node.z);
-
-          graphRef.current.cameraPosition(
-            {
-              x: node.x * distRatio,
-              y: node.y * distRatio,
-              z: node.z * distRatio
-            }, // new position
-            node, // lookAt ({ x, y, z }) - center of target
-            2000  // ms transition duration
-          );
-        }}
-        linkColor={link => link.color || '#F0F0F0'}
-        linkWidth={link => link.thickness || 1}
+        onNodeClick={onNodeClick}
+        linkWidth={link => link.thickness || 1} // Use link thickness or default
+        linkColor={link => link.color || '#F0F0F0'} // Use link color or default
+        linkDirectionalParticles={2}
+        linkDirectionalParticleWidth={2}
+        linkDirectionalParticleSpeed={0.006}
       />
     </div>
   )
 }
 
 export default App
+
+
+
+
+
+  const onNodeDragEnd = (node) => {
+    if (useFixedPositions) {
+      node.fx = node.x;
+      node.fy = node.y;
+      node.fz = node.z;
+    } else {
+      delete node.fx;
+      delete node.fy;
+      delete node.fz;
+    }
+  };
+
+
+
+
+  const onNodeDragEnd = (node) => {
+    if (useFixedPositions) {
+      node.fx = node.x;
+      node.fy = node.y;
+      node.fz = node.z;
+    } else {
+      delete node.fx;
+      delete node.fy;
+      delete node.fz;
+    }
+  };
+
+
+
+
+  const onNodeDragEnd = (node) => {
+    if (useFixedPositions) {
+      node.fx = node.x;
+      node.fy = node.y;
+      node.fz = node.z;
+    } else {
+      delete node.fx;
+      delete node.fy;
+      delete node.fz;
+    }
+  };
+
+
+
+
+  const onNodeDragEnd = (node) => {
+    if (useFixedPositions) {
+      node.fx = node.x;
+      node.fy = node.y;
+      node.fz = node.z;
+    } else {
+      delete node.fx;
+      delete node.fy;
+      delete node.fz;
+    }
+  };
+
+
+const onNodeDragEnd = (node) => {
+    if (useFixedPositions) {
+      node.fx = node.x;
+      node.fy = node.y;
+      node.fz = node.z;
+    } else {
+      delete node.fx;
+      delete node.fy;
+      delete node.fz;
+    }
+  };
+
