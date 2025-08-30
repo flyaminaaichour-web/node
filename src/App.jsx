@@ -54,7 +54,7 @@ function App() {
     }
   }, [jsonFile])
 
-  useEffect(() => {
+    useEffect(() => {
     if (graphRef.current) {
       const forceLink = graphRef.current.d3Force("link");
       if (forceLink) forceLink.links(graphData.links);
@@ -63,7 +63,7 @@ function App() {
       graphRef.current.d3ReheatSimulation();
       graphRef.current.graphData(graphData);
     }
-  }, [graphData])
+  }, [graphData]);
 
   const handleNewGraph = () => {
     setGraphData({ nodes: [], links: [] })
