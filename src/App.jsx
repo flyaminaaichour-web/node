@@ -55,13 +55,29 @@ function App() {
   }, [jsonFile])
 
     useEffect(() => {
-    if (graphRef.current) {
-      const forceLink = graphRef.current.d3Force("link");
-      if (forceLink) forceLink.links(graphData.links);
-      const forceCharge = graphRef.current.d3Force("charge");
-      if (forceCharge) forceCharge.nodes(graphData.nodes);
-      graphRef.current.d3ReheatSimulation();
+    if (graphRef.current && graphData.nodes.length > 0) {
+      // Update the graph data first
       graphRef.current.graphData(graphData);
+      
+      // Get the force simulation
+      const simulation = graphRef.current.d3Force();
+      
+      if (simulation) {
+        // Update link force with new links
+        const forceLink = graphRef.current.d3Force("link");
+        if (forceLink) {
+          forceLink.links(graphData.links);
+        }
+        
+        // Update charge force with new nodes
+        const forceCharge = graphRef.current.d3Force("charge");
+        if (forceCharge) {
+          forceCharge.nodes(graphData.nodes);
+        }
+        
+        // Restart the simulation to apply changes
+        graphRef.current.d3ReheatSimulation();
+      }
     }
   }, [graphData]);
 
@@ -288,6 +304,26 @@ function App() {
         };
       });
     }
+  };
+
+  const onNodeDragEnd = (node) => {
+    if (useFixedPositions) {
+      node.fx = node.x;
+      node.fy = node.y;
+      node.fz = node.z;
+    } else {
+      delete node.fx;
+      delete node.fy;
+      delete node.fz;
+    }
+    
+    // Update the graph data to reflect position changes
+    setGraphData(prevData => ({
+      ...prevData,
+      nodes: prevData.nodes.map(n =>
+        n.id === node.id ? { ...n, x: node.x, y: node.y, z: node.z } : n
+      )
+    }));
   };
 
   return (
@@ -678,6 +714,7 @@ function App() {
           return sprite
         }}
         onNodeClick={onNodeClick}
+        onNodeDragEnd={onNodeDragEnd}
         linkWidth={link => link.thickness || 1} // Use link thickness or default
         linkColor={link => link.color || '#F0F0F0'} // Use link color or default
         linkDirectionalParticles={2}
@@ -689,78 +726,4 @@ function App() {
 }
 
 export default App
-
-
-
-
-
-  const onNodeDragEnd = (node) => {
-    if (useFixedPositions) {
-      node.fx = node.x;
-      node.fy = node.y;
-      node.fz = node.z;
-    } else {
-      delete node.fx;
-      delete node.fy;
-      delete node.fz;
-    }
-  };
-
-
-
-
-  const onNodeDragEnd = (node) => {
-    if (useFixedPositions) {
-      node.fx = node.x;
-      node.fy = node.y;
-      node.fz = node.z;
-    } else {
-      delete node.fx;
-      delete node.fy;
-      delete node.fz;
-    }
-  };
-
-
-
-
-  const onNodeDragEnd = (node) => {
-    if (useFixedPositions) {
-      node.fx = node.x;
-      node.fy = node.y;
-      node.fz = node.z;
-    } else {
-      delete node.fx;
-      delete node.fy;
-      delete node.fz;
-    }
-  };
-
-
-
-
-  const onNodeDragEnd = (node) => {
-    if (useFixedPositions) {
-      node.fx = node.x;
-      node.fy = node.y;
-      node.fz = node.z;
-    } else {
-      delete node.fx;
-      delete node.fy;
-      delete node.fz;
-    }
-  };
-
-
-const onNodeDragEnd = (node) => {
-    if (useFixedPositions) {
-      node.fx = node.x;
-      node.fy = node.y;
-      node.fz = node.z;
-    } else {
-      delete node.fx;
-      delete node.fy;
-      delete node.fz;
-    }
-  };
 
