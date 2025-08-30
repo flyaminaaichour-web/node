@@ -41,7 +41,16 @@ function App() {
                 textSize: node.textSize || 6 
               }
             }),
-            links: data.links.map(link => ({ ...link, color: link.color || "#F0F0F0", thickness: link.thickness || 1 }))
+            links: data.links.map(link => {
+              const nodeMap = Object.fromEntries(data.nodes.map(n => [n.id, n]))
+              return {
+                ...link,
+                source: nodeMap[link.source] || link.source,
+                target: nodeMap[link.target] || link.target,
+                color: link.color || "#F0F0F0",
+                thickness: link.thickness || 1
+              }
+            })
           })
         } catch (error) {
           console.error("Error parsing JSON file:", error)
